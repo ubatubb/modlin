@@ -1,0 +1,692 @@
+---
+title: "Mortalidade infantil por país"
+author: "Gustavo Ubatuba Farias - 00577844"
+format: revealjs
+editor: visual
+footer: "Gustavo Ubatuba Farias - 00577844"
+---
+
+## Objetivo
+
+Este trabalho tem como objetivo analisar os fatores que influenciam a **mortalidade infantil** *(variável resposta)* em diferentes países, utilizando um modelo de regressão múltipla, a partir das variáveis **Expectativa de vida**, **médicos para cada mil pessoas** e **continente do país** *(variáveis explicativas)*.
+
+## Banco de dados
+
+O banco de dados que vamos analisar é
+
+**Global Country Information Dataset 2023**
+
+disponivel em <https://www.kaggle.com/datasets/nelgiriyewithana/countries-of-the-world-2023/data>
+
+Foi removido países onde as variáveis utilizadas continha **NA's**
+
+## Visualizando o banco de dados
+
+```{r, include=FALSE, warning=FALSE, echo=FALSE}
+
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(kableExtra)
+library(gridExtra)
+library(readxl)
+wor <- read_excel("wor.xlsx")
+wor <- as_data_frame(wor)
+
+
+
+
+cores <- c("africa" = "orange", 
+           "oceania" = "blue", 
+           "america" = "green", 
+           "asia" = "yellow", 
+           "europa" = "lightblue")
+
+
+preview <- head(wor, n = 10)
+
+kable(
+  preview,
+  format = "html",
+  caption = "Visualização das primeiras linhas do banco de dados",
+  align = "c"
+) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+
+```
+
+# Estatística descritiva
+
+```{r, include=FALSE, warning=FALSE}
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(sf)
+library(summarytools)
+library(kableExtra)
+
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+world_data <- world %>%
+  left_join(wor, by = c("name_long" = "pais"))
+
+```
+
+## Mortalidade infantil
+
+```{r}
+
+ggplot(data = world_data) +
+  geom_sf(aes(fill = mort_inf), color = "white") +
+  scale_fill_gradient(
+    low = "green",
+    high = "red",
+    na.value = "lightgrey",  # Cor para países sem dados
+    name = "Mortalidade infantil"
+  ) +
+  labs(
+    title = "Mapa da taxa de mortalidade infantil",
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    legend.title = element_text(size = 10)
+  )
+
+```
+
+## Mortalidade infantil
+
+```{r}
+
+
+desc_mort <- summarytools::descr(wor$mort_inf)
+desc_mort <- desc_mort[c(1,2,3,4,5,6,7)]
+desc_mort <- data_frame("Estatística" = c("Média", "Desvio padrão", "Minimo", "Q1", "Mediana", "Q3", "Máximo"), "Valor" = round(desc_mort, 3))
+
+kable(
+  desc_mort,
+  col.names = c("       Estatística       ", "        Valor        "),
+  format = "html",
+  align = "c"
+) %>%
+  kable_styling(
+    full_width = FALSE,
+    position = "center"
+  )
+
+```
+
+## Mortalidade infantil
+
+```{r}
+ggplot(data = wor)+
+  geom_histogram(aes(x = mort_inf), fill = "lightblue", col = "black")+
+  labs(title = "Distribuição da taxa de mortalidade infantil")+
+  ylab("Frequência")+
+  xlab("Taxa de mortalidade infantil")+
+  theme_light()
+
+```
+
+## Expectativa de vida
+
+```{r}
+
+ggplot(data = world_data) +
+  geom_sf(aes(fill = expect_vida), color = "white") +
+  scale_fill_gradient(
+    low = "red",
+    high = "green",
+    na.value = "lightgrey",  # Cor para países sem dados
+    name = "Expectativa de vida"
+  ) +
+  labs(
+    title = "Mapa da expectativa de vida",
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    legend.title = element_text(size = 10)
+  )
+
+```
+
+## Expectativa de vida
+
+```{r}
+
+
+
+desc_exp <- summarytools::descr(wor$expect_vida)
+desc_exp <- desc_exp[c(1,2,3,4,5,6,7)]
+desc_exp <- data_frame("Estatística" = c("Média", "Desvio padrão", "Minimo", "Q1", "Mediana", "Q3", "Máximo"), "Valor" = round(desc_exp, 3))
+
+kable(
+  desc_exp,
+  col.names = c("       Estatística       ", "        Valor        "),
+  format = "html",
+  align = "c"
+) %>%
+  kable_styling(
+    full_width = FALSE,
+    position = "center"
+  )
+
+
+```
+
+## Expectativa de vida
+
+```{r}
+ggplot(data = wor)+
+  geom_histogram(aes(x = expect_vida), fill = "lightblue", col = "black")+
+  labs(title = "Distribuição da expectativa de vida")+
+  ylab("Frequência")+
+  xlab("Expectativa de vida")+
+  theme_light()
+
+```
+
+## Medicos por mil habitantes
+
+```{r}
+
+ggplot(data = world_data) +
+  geom_sf(aes(fill = medic), color = "white") +
+  scale_fill_gradient(
+    low = "red",
+    high = "green",
+    na.value = "lightgrey",  # Cor para países sem dados
+    name = "Médicos por 1000 hab."
+  ) +
+  labs(
+    title = "Mapa da Quantidade de Médicos para cada habitante por País",
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    legend.title = element_text(size = 10)
+  )
+
+```
+
+## Medicos por mil habitantes
+
+```{r}
+
+desc_med <- summarytools::descr(wor$mort_inf)
+desc_med <- desc_med[c(1,2,3,4,5,6,7)]
+desc_med <- data_frame("Estatística" = c("Média", "Desvio padrão", "Minimo", "Q1", "Mediana", "Q3", "Máximo"), "Valor" = round(desc_med, 3))
+
+kable(
+  desc_med,
+  col.names = c("       Estatística       ", "        Valor        "),
+  format = "html",
+  align = "c"
+) %>%
+  kable_styling(
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+## Medicos por mil habitantes
+
+```{r}
+ggplot(data = wor)+
+  geom_histogram(aes(x = medic), fill = "lightblue", col = "black")+
+  labs(title = "Distribuição da quantidade de médicos para cada 1000 habitantes")+
+  ylab("Frequência")+
+  xlab("Médicos / 1000 hab.")+
+  theme_light()
+
+```
+
+## Correlação
+
+```{r}
+cor1 = cor(wor$mort_inf, wor$expect_vida,  use = "complete.obs")
+cor2 = cor(wor$mort_inf, wor$medic,  use = "complete.obs")
+cor3 = cor(wor$medic, wor$expect_vida,  use = "complete.obs")
+
+cov1 = cov(wor$mort_inf, wor$expect_vida,  use = "complete.obs")
+cov2 = cov(wor$mort_inf, wor$medic,  use = "complete.obs")
+cov3 = cov(wor$medic, wor$expect_vida,  use = "complete.obs")
+
+cor_matrix <- matrix(c(
+  1, cor1, cor2,
+  cor1, 1, cor3,
+  cor2, cor3, 1
+), nrow = 3, byrow = TRUE, dimnames = list(
+  c("Mortalidade Infantil", "Expectativa de Vida", "Médicos"),
+  c("Mortalidade Infantil", "Expectativa de Vida", "Médicos")
+))
+
+cov_matrix <- matrix(c(
+  var(wor$mort_inf), cov1, cov2,
+  cov1, var(wor$expect_vida), cov3,
+  cov2, cov3, var(wor$medic, na.rm = TRUE)
+), nrow = 3, byrow = TRUE, dimnames = list(
+  c("Mortalidade Infantil", "Expectativa de Vida", "Médicos"),
+  c("Mortalidade Infantil", "Expectativa de Vida", "Médicos")
+))
+
+# Exibindo as tabelas
+library(knitr)
+kable(cor_matrix, caption = "Tabela de Correlação", digits = 3)
+
+```
+
+## Correlação
+
+```{r}
+
+kable(cov_matrix, caption = "Tabela de Covariância", digits = 3)
+```
+
+## 
+
+# Modelo de regressão
+
+Vamos analisar os diagramas de dispersão entre as variáveis qualitativas que estamos interessados em analisar
+
+-   **Mortalidade infantil** vs **expectativa de vida**
+
+-   **Mortalidade infantil** vs **quantidade de médicos para cada 1000 pessoas**
+
+Além disso, vamos analisar os boxplots da **mortalidade infantil** para cada **continente**
+
+## Gráfico
+
+```{r}
+
+ggplot(data = wor) +
+  geom_point(aes(x = expect_vida, y = mort_inf, color = cont)) +
+  scale_color_manual(
+    values = c(
+      "africa" = "orange", 
+      "oceania" = "blue", 
+      "america" = "green", 
+      "asia" = "yellow", 
+      "europa" = "lightblue"
+    )
+  ) +
+  labs(
+    title = "Dispersão entre expectativa de vida e mortalidade infantil",
+    x = "Expectativa de vida",
+    y = "Mortalidade infantil",
+    color = "Continente"
+  ) +
+  theme_light()
+
+```
+
+## Gráfico
+
+```{r}
+
+
+ggplot(data = wor) +
+  geom_point(aes(x = medic, y = mort_inf, color = cont)) +
+  scale_color_manual(
+    values = c(
+      "africa" = "orange", 
+      "oceania" = "blue", 
+      "america" = "green", 
+      "asia" = "yellow", 
+      "europa" = "lightblue"
+    )
+  ) +
+  labs(
+    title = "Dispersão entre quantidade de médicos e mortalidade infantil",
+    x = "Médicos para cada 1000 habitantes",
+    y = "Mortalidade infantil",
+    color = "Continente"
+  ) +
+  theme_light()
+
+```
+
+Há um problema: uma relação não linear ...
+
+## Gráfico
+
+... para resolver, vamos fazer uma transformação
+
+```{r}
+
+
+ggplot(data = wor) +
+  geom_point(aes(x = log(medic+0.1), y = mort_inf, color = cont)) +
+  scale_color_manual(
+    values = c(
+      "africa" = "orange", 
+      "oceania" = "blue", 
+      "america" = "green", 
+      "asia" = "yellow", 
+      "europa" = "lightblue"
+    )
+  ) +
+  labs(
+    title = "Dispersão entre o log da quantidade de médicos e mortalidade infantil",
+    x = "log(Médicos para cada 1000 habitantes  +  0.1 )",
+    y = "Mortalidade infantil",
+    color = "Continente"
+  ) +
+  theme_light()
+
+```
+
+## Gráfico
+
+```{r}
+
+ggplot(wor)+
+  geom_boxplot(aes(cont, mort_inf), fill = cores)+
+  labs("Quartís da mortalidade infantil por continente")+
+  xlab("Continentes") + ylab("Mortalidade infantil")+
+  theme_light()
+
+
+```
+
+## Modelo de regressão
+
+$$
+\begin{aligned}
+\text{Mortalidade infantil} = \beta_0 &\\ 
+&\quad + \beta_1 \cdot \text{Expectativa de vida} \\
+&\quad + \beta_2 \cdot \log(\text{Médicos por mil pessoas}+0.1) \\
+&\quad + \beta_{3,j} I_{\text{Continente}_j}\\
+&\quad + \epsilon
+\end{aligned}
+$$
+
+## Seja:
+
+$$
+\begin{aligned}
+Y &:= \text{Mortalidade infantil} \\  
+X_1 &:= \text{Expectativa de vida} \\
+X_2 &:= \log(\text{Médicos para cada 1000 habitantes}+0.1) \\
+X_3 &:= \text{Continente} 
+\end{aligned}
+$$
+
+$$
+Y = \beta_0 + \beta_1 \cdot X_1 + \beta_2 \cdot X_2 + \beta_{3,j} I_{continente_j}
+$$
+
+## Modelo
+
+```{r}
+
+mod = lm(mort_inf ~ expect_vida + log(medic+0.1) + cont, data = wor)
+mod
+
+
+```
+
+
+
+
+## Portanto:
+
+$$
+\begin{aligned}
+\beta_0 &= 165.6259 \\  
+\beta_1 &= -1.9765\\
+\beta_2 &= -3.4497\\
+X_{3,0} = \text{África} \Rightarrow \beta_{3,0} &= 0\\
+X_{3,1} = \text{Ásia} \Rightarrow \beta_{3,1} &= -0.7514\\
+X_{3,2} = \text{América} \Rightarrow \beta_{3,2} &= -1.2235\\
+X_{3,3} = \text{Europa} \Rightarrow \beta_{3,3} &= -0.9235\\
+X_{3,4} = \text{Oceania} \Rightarrow \beta_{3,4} &= -4.9725
+\end{aligned}
+$$
+
+## ficando:
+
+$$
+\begin{aligned}
+\hat{Y} = 165.6259 - 1.9765 \cdot X_1 - 3.4498 \cdot X_2 \\ + \quad
+\begin{cases} 
+-1.2235 & \text{se } \text{Continente } = \text{América} \\
+-0.7514 & \text{se } \text{Continente } = \text{Ásia} \\
+-0.9235 & \text{se } \text{Continente } = \text{Europa} \\
+-4.9725 & \text{se } \text{Continente } = \text{Oceania} \\
+0 & \text{se } \text{Continente } = \text{África}
+\end{cases}
+\end{aligned}
+$$
+
+## ou então, separando:
+
+$$
+\begin{aligned}
+\text{Se África: } \hat{Y} = 165.6259 -1.9765 \cdot X_1 - 3.4498 \cdot X_2 \\
+
+\text{Se Ásia: } \hat{Y} =  164.8745 -1.9765 \cdot X_1 - 3.4498 \cdot X_2 \\
+
+\text{Se América: } \hat{Y} =  164.4024 -1.9765 \cdot X_1 - 3.4498 \cdot X_2 \\
+
+\text{Se Europa: } \hat{Y} =  164.7024 - 1.9765 \cdot X_1 - 3.4498 \cdot X_2 \\
+
+\text{Se Oceania: } \hat{Y} =  160.6534 -1.9765 \cdot X_1 - 3.4498 \cdot X_2
+\end{aligned}
+$$
+
+---
+
+### Visualizando a reta 
+separada por continente e separada pelas variáveis quantitativas
+
+```{r}
+
+af_ex = function(X1) { 165.6259 - 1.9765 * X1 }
+as_ex = function(X1) { 164.8745 - 1.9765 * X1 }
+am_ex = function(X1) { 164.4024 - 1.9765 * X1 }
+eu_ex = function(X1) { 164.7024 - 1.9765 * X1 }
+oc_ex = function(X1) { 160.6534 - 1.9765 * X1 }
+af_me = function(X2) { 165.6259 - 3.4498 * X2 }
+as_me = function(X2) { 164.8745 - 3.4498 * X2 }
+am_me = function(X2) { 164.4024 - 3.4498 * X2 }
+eu_me = function(X2) { 164.7024 - 3.4498 * X2 }
+oc_me = function(X2) { 160.6534 - 3.4498 * X2 }
+
+expectativa_vida <- seq(0, 100, by = 0.1)  
+data_ex <- data.frame(
+  Expectativa_Vida = expectativa_vida,
+  Af = af_ex(expectativa_vida),
+  As = as_ex(expectativa_vida),
+  Am = am_ex(expectativa_vida),
+  Eu = eu_ex(expectativa_vida),
+  Oc = oc_ex(expectativa_vida)
+)
+
+p1 = ggplot(data_ex, aes(x = Expectativa_Vida)) +
+  geom_line(aes(y = Af, color = "África")) +
+  geom_line(aes(y = As, color = "Ásia")) +
+  geom_line(aes(y = Am, color = "América")) +
+  geom_line(aes(y = Eu, color = "Europa")) +
+  geom_line(aes(y = Oc, color = "Oceania")) +
+  labs(title = "Mortalidade infantil vs Expectativa de Vida",
+       x = "Expectativa de Vida",
+       y = "Mortalidade infantil") +
+  scale_color_manual(values = c("blue", "green", "red", "purple", "orange")) +
+  theme_minimal()
+
+medicos_por_mil <- seq(-3, 3, by = 0.01) 
+data_me <- data.frame(
+  Medicos_por_Mil = medicos_por_mil,
+  Af = af_me(medicos_por_mil),
+  As = as_me(medicos_por_mil),
+  Am = am_me(medicos_por_mil),
+  Eu = eu_me(medicos_por_mil),
+  Oc = oc_me(medicos_por_mil)
+)
+
+p2 = ggplot(data_me, aes(x = Medicos_por_Mil)) +
+  geom_line(aes(y = Af, color = "África")) +
+  geom_line(aes(y = As, color = "Ásia")) +
+  geom_line(aes(y = Am, color = "América")) +
+  geom_line(aes(y = Eu, color = "Europa")) +
+  geom_line(aes(y = Oc, color = "Oceania")) +
+  labs(title = "Mortalidade infantil vs Médicos por Mil Pessoas",
+       x = "log(Médicos por Mil Pessoas+0.1)",
+       y = "Mortalidade infantil") +
+  scale_color_manual(values = c("blue", "green", "red", "purple", "orange")) +
+  theme_minimal()
+
+
+grid.arrange(p1, p2, ncol = 2)
+
+```
+
+
+## Resumos do modelo
+
+```{r}
+summary(mod)
+```
+
+## Interpretação dos Coeficientes
+
+### Intercepto ( $\beta_0$ )  
+- Valor esperado de **mortalidade infantil** quando todas as variáveis explicativas são zero.  
+- Não possui interpretação prática direta, dado o ajuste com logaritmo.
+
+---
+
+### Expectativa de Vida ( $\beta_1 = -1.9765$ )  
+- A cada aumento de 1 ano na expectativa de vida, a taxa de mortalidade infantil reduz em 1.9765 unidades. Quando as demais variáveis explicativas são mantidas constantes
+- Estatisticamente significativo ( $p < 0.001$ ).
+
+---
+
+### Logaritmo dos Gastos Médicos ( $\beta_2 = -3.4498$ )  
+- A cada aumento unitário no logaritmo dos gastos médicos, a taxa de mortalidade infantil reduz em 3.4498 unidades.  Quando as demais variáveis explicativas são mantidas constantes  
+- Estatisticamente significativo ( $p < 0.001$ ).
+
+---
+
+### Efeitos por Continente ( $\beta_j$ )  
+- América, Ásia e Europa não possuem coeficientes significativos.  
+- Oceania apresenta uma redução média de 4.9725 unidades na mortalidade infantil em relação ao continente de referencia (África), com $p = 0.048$.  
+
+---
+
+## Qualidade do Ajuste  
+
+- $R^2 = 0.8807$: O modelo explica 88.07% da variação na taxa de mortalidade infantil, indicando um excelente ajuste.  
+- $R^2$ ajustado = 0.8765: Considera o número de preditores e confirma a robustez do modelo.  
+- Teste $F$ ($p < 2.2e^{-16}$): O modelo é significativo como um todo. 
+
+
+
+
+## Gráfico
+
+
+```{r, message=FALSE, warning=FALSE}
+library(plotly)
+
+
+plot_ly(data = wor, 
+        x = ~expect_vida, 
+        y = ~log(medic + 0.1), 
+        z = ~mort_inf, 
+        color = ~cont, 
+        colors = cores,  
+        type = 'scatter3d', 
+        mode = 'markers',
+        marker = list(size = 3)) %>%
+  layout(title = "Dispersão 3D: Expectativa de Vida, Log(Médicos) e Mortalidade Infantil",
+         scene = list(
+           xaxis = list(title = "Expectativa de Vida"),
+           yaxis = list(title = "log(Médicos por 1000 habitantes)"),
+           zaxis = list(title = "Mortalidade Infantil")
+         ),
+         legend = list(font = list(size = 14),  
+                       itemsizing = 'constant'))
+
+```
+
+
+
+
+# Análise dos resíduos
+
+
+## Teste de normalidade dos resíduos
+
+```{r}
+shapiro.test(mod$residuals)
+```
+
+$$ 
+H_0 : resíduos \sim normal \\
+H_1 : resíduos \nsim normal
+$$
+
+Em um nível de 10% de significância, não há evidencias para rejeitar a hipótese nula, isto é, podemos dizer que os resíduos seguem uma distribuição normal
+
+## 
+
+Pelo gráfico abaixo, podemos ver que o resíduo se aproxima de uma normal
+
+```{r}
+plot(mod, 2)
+```
+
+## Teste de homocedasticidade dos resíduos
+
+```{r}
+library(lmtest)
+bptest(mod)
+```
+
+Podemos perceber que o pressuposto da homocedasticidade não foi atendido, pois o p-valor é muito baixo
+
+## Teste de outliers nos resíduos
+
+```{r}
+summary(rstandard(mod))
+```
+
+```{r}
+plot(mod, 4)
+```
+
+~\*\*\*(Austrália, Nova Zelândia e Paquistão)~
+
+## 
+
+Vamos verificar se a heterocedasticidade é dada pelos outliers
+
+```{r}
+wor_so <- wor[-c(25, 37, 121), ]
+mod_so = lm(mort_inf ~ expect_vida + log(medic+0.1) + cont, data = wor_so)
+bptest(mod)
+
+```
+
+O p-valor continua muito próximo de 0, portanto, não são os outliers que estão atrapalhando a homocedasticidade dos resíduos
+
+## Teste de multicolinearidade
+
+```{r}
+library(car)
+vif(mod)
+
+```
+
+Existe multicolinearidade se o valor for maior que 10, neste caso, não há multicolinearidade
